@@ -5,10 +5,8 @@ import os
 import pathlib
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image, ImageFont, ImageDraw, ImageFilter, ImageColor
-from colorama import init
 from halo import Halo
 
 from exif import generate_exif_dict
@@ -64,8 +62,6 @@ EXIF_TAGS_TO_PRINT = {
     "Exposure": "ExposureTime",
     "ISO": "ISOSpeedRatings",
 }
-
-init()
 
 spinner = Halo(text='Loading..', spinner='bouncingBar', text_color='cyan')
 

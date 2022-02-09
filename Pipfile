@@ -5,8 +5,9 @@ name = "pypi"
 
 [packages]
 halo = "*"
-mypy = "*"
 pylint = "*"
+pillow = "*"
+argparse = "*"
 
 [dev-packages]
 
