@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 import argparse
+import concurrent
 import os
 import pathlib
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 from PIL import Image, ImageFont, ImageDraw, ImageFilter, ImageColor
 from colorama import init
 from halo import Halo
 
 from exif import generate_exif_dict
-from utils import dotdict, DictX
 
 parser = argparse.ArgumentParser()
 
@@ -40,7 +42,7 @@ else:
 
 # Box
 BOX_TRANSPARENCY = args.transparency
-BOX_PADDING = dotdict({"top": 20, "right": 50, "bottom": 35, "left": 50})
+BOX_PADDING = {"top": 20, "right": 50, "bottom": 35, "left": 50}
 BOX_COLOR = ImageColor.getrgb(args.background)
 
 BOX_OPACITY = int(255 * (BOX_TRANSPARENCY / 100))
@@ -73,12 +75,13 @@ def _save_image(img):
     basename = os.path.basename(img.filename)
     filename_parts = os.path.splitext(basename)
     filename = filename_parts[0] + '.exif' + filename_parts[1]
+    pathlib.Path(PATH).mkdir(parents=True, exist_ok=True)
     if not os.path.exists(PATH):
         spinner.fail('Output path "%s" does not exist!' % PATH)
 
     fullpath = os.path.join(PATH, filename)
 
-    img.save(fullpath, quality=100, subsampling=0, format='JPEG', icc_profile=img.info.get('icc_profile', ''))
+    # img.save(fullpath, quality=100, subsampling=0, format='JPEG', icc_profile=img.info.get('icc_profile', ''))
 
 
 def _draw_blurred_background(img, drawing_data):
@@ -87,7 +90,7 @@ def _draw_blurred_background(img, drawing_data):
     draw = ImageDraw.Draw(mask)
 
     for item, data in drawing_data.items():
-        draw.rounded_rectangle(data.rectangle.position, fill=255, radius=7)
+        draw.rounded_rectangle(data['rectangle']['position'], fill=255, radius=7)
 
     blurry_image = image.filter(ImageFilter.GaussianBlur(30))
     img.paste(blurry_image, mask=mask)
@@ -98,7 +101,7 @@ def _draw_text(img, drawing_data):
     for item, data in drawing_data.items():
         # draw.rectangle(rectangle_position, fill=(255, 255, 255, BOX_OPACITY))
 
-        draw.rounded_rectangle(data.rectangle.position, fill=BOX_RGBA, radius=7)
+        draw.rounded_rectangle(data['rectangle']['position'], fill=BOX_RGBA, radius=7)
         #
 
         # # drop shadow
@@ -116,13 +119,13 @@ def _draw_text(img, drawing_data):
         # icon.thumbnail((font_size, font_size), Image.ANTIALIAS)
         #
         # img.paste(icon, (rectangle_x + BOX_PADDING.left, rectangle_y + BOX_PADDING.top), icon)
-        draw.text(data.text_description.position, data.text_description.text, TEXT_RGBA, font=data.text_description.font)
+        draw.text(data['text_description']['position'], data['text_description']['text'], TEXT_RGBA, font=data['text_description']['font'])
 
         draw.text(
-            data.text_value.position,
-            data.text_value.text,
+            data['text_value']['position'],
+            data['text_value']['text'],
             TEXT_RGBA,
-            font=data.text_value.font
+            font=data['text_value']['font']
         )
 
 
@@ -141,15 +144,17 @@ def _generate_draw_data(img, exif_info):
     font = ImageFont.truetype(str(args.font), font_size)
     text_size_space = font.getsize(' ')
     rectangle_y = img.height - space_bottom
-    box_padding_percent = dotdict(
-        {
-            "top": int(font_size * 16 / 100),
-            "right": int(font_size * 40 / 100),
-            "bottom": int(font_size * 28 / 100),
-            "left": int(font_size * 40 / 100)
-        }
-    )
-    draw_data = DictX({})
+    rectangle_x = 0 + space_left
+
+    cursor = {'x': rectangle_x, 'y': rectangle_y}
+    box_padding_percent = {
+        "top": int(font_size * 16 / 100),
+        "right": int(font_size * 40 / 100),
+        "bottom": int(font_size * 28 / 100),
+        "left": int(font_size * 40 / 100)
+    }
+
+    draw_data = {}
     for name, value in reversed(exif_info.items()):
         if name == 'Exposure':
             value = "%ss" % str(value)
@@ -162,41 +167,41 @@ def _generate_draw_data(img, exif_info):
 
         text_size_description = font.getsize(name)
         text_size_value = font.getsize(value)
-        rectangle_height = text_size_description[1] + box_padding_percent.top + box_padding_percent.bottom
-        rectangle_width = text_size_description[0] + text_size_value[0] + text_size_space[0] + box_padding_percent.left + box_padding_percent.right
+        rectangle_height = text_size_description[1] + box_padding_percent['top'] + box_padding_percent['bottom']
+        rectangle_width = text_size_description[0] + text_size_value[0] + text_size_space[0] + box_padding_percent['left'] + box_padding_percent['right']
         rectangle_y = rectangle_y - rectangle_height
-        rectangle_x = 0 + space_left
-
+        cursor['x'] = cursor['x'] - rectangle_height
         rectangle_position = [
-            rectangle_x,
-            rectangle_y,
-            rectangle_x + rectangle_width,
-            rectangle_y + rectangle_height,
+            cursor['x'],
+            cursor['y'],
+            cursor['x'] + rectangle_width,
+            cursor['y'] + rectangle_height,
         ]
 
-        draw_data[name] = DictX({
-            "rectangle": DictX({
+        draw_data[name] = {
+            "rectangle": {
                 "width": rectangle_width,
                 "height": rectangle_height,
                 "position": rectangle_position,
-            }),
-            "text_description": DictX({
+            },
+            "text_description": {
                 "width": text_size_description[0],
                 "height": text_size_description[1],
-                "position": (rectangle_x + box_padding_percent.left, rectangle_y + box_padding_percent.top),
+                "position": (cursor['y'] + box_padding_percent['left'], cursor['y'] + box_padding_percent['top']),
                 "text": str(name),
                 "font": font
-            }),
-            "text_value": DictX({
+            },
+            "text_value": {
                 "width": text_size_value[0],
                 "height": text_size_value[1],
-                "position": (rectangle_x + box_padding_percent.left + text_size_description[0] + text_size_space[0], rectangle_y + box_padding_percent.top),
+                "position": (
+                    cursor['y'] + box_padding_percent['left'] + text_size_description[0] + text_size_space[0], cursor['y'] + box_padding_percent['top']),
                 "text": str(value),
                 "font": font
-            })
-        })
+            }
+        }
 
-        rectangle_y = rectangle_y - space_between
+        cursor['y'] = cursor['y'] - space_between
 
     return draw_data
 
@@ -228,30 +233,56 @@ def get_list_of_images(filepath):
     return file_names
 
 
+def parse_image(img_path):
+    absolute_path = os.path.abspath(img_path)
+    image = Image.open(absolute_path)
+    exif_info = custom_exif(absolute_path)
+    if exif_info is None:
+        return 'Image %s contains no exif data' % os.path.basename(image.filename)
+    draw_image(image, exif_info)
+
+
 def read_image():
     spinner.start()
-
     if len(sys.argv) <= 1:
         spinner.fail("Oops!  No image detected.  Try again...")
         return
-    # filepath = sys.argv[1]
+        # filepath = sys.argv[1]
     filepath = args.image_paths
     if os.path.isdir(filepath):
         image_list = get_list_of_images(filepath)
         number_of_operations = len(image_list)
         spinner.start('Parsing %i images' % number_of_operations)
 
-        for img_path in image_list:
-            fullpath = os.path.join(filepath, img_path)
-            image = Image.open(fullpath)
-            exif_info = custom_exif(fullpath)
-            if exif_info is None:
-                spinner.warn('%s contains no exif data' % image.filename)
-                number_of_operations -= 1
-                spinner.start('Parsing %i images' % number_of_operations)
-                continue
-            draw_image(image, exif_info)
-        spinner.succeed("Saved %i images to %s." % (number_of_operations, args.output))
+        with concurrent.futures.ThreadPoolExecutor(os.cpu_count()) as e:
+            start = time.perf_counter()
+            processes = []
+            for img_path in image_list:
+                fullpath = os.path.join(filepath, img_path)
+                processes.append(e.submit(parse_image, fullpath))
+                e.map(parse_image, fullpath)
+
+        # future = [e.submit(parse_image, os.path.join(filepath, p)) for p in image_list]
+        for future in processes:
+            # print(future.done())
+            if future.result() is not None:
+                spinner.stop()
+                print(future.result())
+
+        # for img_path in image_list:
+        #     future = executor.submit(parse_image, full_img_path)
+        #     future.result()
+
+        # fullpath = os.path.join(filepath, img_path)
+        # image = Image.open(img_path)
+        # exif_info = custom_exif(img_path)
+        # if exif_info is None:
+        #     spinner.warn('%s contains no exif data' % image.filename)
+        #     number_of_operations -= 1
+        #     spinner.start('Parsing %i images' % number_of_operations)
+        #     continue
+        # draw_image(image, exif_info)
+        spinner.succeed("Saved %i images to %ss." % (number_of_operations, time.perf_counter() - start))
 
     elif os.path.isfile(filepath):
         spinner.start('Parsing 1 image')

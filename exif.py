@@ -4,8 +4,6 @@ from fractions import Fraction
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
-from utils import DictX
-
 
 def generate_exif_dict(filepath, spinner):
     try:
@@ -28,11 +26,11 @@ def generate_exif_dict(filepath, spinner):
                     if len(str(val)) > 64:
                         val = str(val)[:65] + "..."
 
-                    exif_data[available_tags[key]] = DictX({
+                    exif_data[available_tags[key]] = {
                         "tag": key,
                         "raw": val,
                         "processed": val
-                    })
+                    }
 
         image.close()
 
