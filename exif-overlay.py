@@ -30,7 +30,7 @@ args = parser.parse_args()
 # Globals
 SPACE_FROM_BOTTOM = 100
 SPACE_FROM_LEFT = 60
-SPACE_BETWEEN_BOXES = 30
+SPACE_BETWEEN_BOXES = 20
 INCLUDED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'tif']
 POSITION = args.position
 if not args.output:

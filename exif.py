@@ -92,7 +92,7 @@ def _process_exif_dict(exif_dict):
 
     if exif_dict.get("FocalLength") is not None and exif_dict["FocalLength"]["processed"] is not None:
         exif_dict["FocalLength"]["processed"] = \
-            "{}mm".format(exif_dict["FocalLength"]["processed"])
+            "{}mm".format(round(exif_dict["FocalLength"]["processed"]))
 
     if exif_dict.get("XResolution") is not None and exif_dict["XResolution"]["raw"] is not None:
         exif_dict["XResolution"]["processed"] = \
