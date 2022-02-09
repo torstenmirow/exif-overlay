@@ -97,7 +97,7 @@ def _draw_blurred_background(img, drawing_data):
     mask = Image.new('L', image.size, 0)
     draw = ImageDraw.Draw(mask)
 
-    for item, data in drawing_data.items():
+    for _, data in drawing_data.items():
         draw.rounded_rectangle(data['rectangle']['position'], fill=255, radius=7)
 
     blurry_image = image.filter(ImageFilter.GaussianBlur(30))
@@ -106,27 +106,8 @@ def _draw_blurred_background(img, drawing_data):
 
 def _draw_text(img, drawing_data):
     draw = ImageDraw.Draw(img, "RGBA")
-    for item, data in drawing_data.items():
-        # draw.rectangle(rectangle_position, fill=(255, 255, 255, BOX_OPACITY))
-
+    for _, data in drawing_data.items():
         draw.rounded_rectangle(data['rectangle']['position'], fill=BOX_RGBA, radius=7)
-        #
-
-        # # drop shadow
-        # blurred = Image.new('RGBA', img.size)
-        # draw_blurred = ImageDraw.Draw(blurred)
-        # draw_blurred.text(xy=(rectangle_x + BOX_PADDING.left + 3, rectangle_y + BOX_PADDING.top + 3), text=name, fill=(0, 0, 0, 100), font=font)
-        # blurred = blurred.filter(ImageFilter.BoxBlur(3))
-        #
-        # # Paste soft text onto background
-        # img.paste(blurred, blurred)
-
-        # icon = Image.open('./icons/aperture.png')
-        # icon.convert('RGBA')
-        #
-        # icon.thumbnail((font_size, font_size), Image.ANTIALIAS)
-        #
-        # img.paste(icon, (rectangle_x + BOX_PADDING.left, rectangle_y + BOX_PADDING.top), icon)
         draw.text(data['text_description']['position'], data['text_description']['text'], TEXT_RGBA, font=data['text_description']['font'])
 
         draw.text(
