@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-import argparse
-import concurrent
 import os
 import pathlib
 import sys
 import time
+from concurrent import futures
 
+import argparse
 from PIL import Image, ImageFont, ImageDraw, ImageFilter, ImageColor
 from halo import Halo
 
@@ -244,7 +244,7 @@ def read_image():
         number_of_operations = len(image_list)
         spinner.start('Parsing %i images' % number_of_operations)
 
-        with concurrent.futures.ThreadPoolExecutor(os.cpu_count()) as e:
+        with futures.ThreadPoolExecutor(os.cpu_count()) as e:
             start = time.perf_counter()
             processes = []
             for img_path in image_list:
