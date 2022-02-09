@@ -30,7 +30,7 @@ args = parser.parse_args()
 SPACE_FROM_BOTTOM = 60
 SPACE_FROM_LEFT = 80
 SPACE_BETWEEN_BOXES = 40
-INCLUDED_EXTENSIONS = ['jpg', 'jpeg', 'png']
+INCLUDED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'tif']
 POSITION = args.position
 if not args.output:
     if os.path.isdir(args.image_paths):
@@ -81,7 +81,7 @@ def _save_image(img):
 
     fullpath = os.path.join(PATH, filename)
 
-    # img.save(fullpath, quality=100, subsampling=0, format='JPEG', icc_profile=img.info.get('icc_profile', ''))
+    img.save(fullpath, quality=100, subsampling=0, format='JPEG', icc_profile=img.info.get('icc_profile', ''))
 
 
 def _draw_blurred_background(img, drawing_data):
@@ -138,9 +138,9 @@ def draw_image(img, exif_info):
 
 def _generate_draw_data(img, exif_info):
     font_size = round(img.height * FONT_SIZE / 100)
-    space_left = round(img.height * (SPACE_FROM_LEFT / img.height * 100) / 100)
-    space_between = round(img.height * (SPACE_BETWEEN_BOXES / img.height * 100) / 100)
-    space_bottom = round(img.height * (SPACE_FROM_BOTTOM / img.height * 100) / 100)
+    space_left = round(img.width * (SPACE_FROM_LEFT / 8192 * 100) / 100)
+    space_between = round(img.height * (SPACE_BETWEEN_BOXES / 5464 * 100) / 100)
+    space_bottom = round(img.height * (SPACE_FROM_BOTTOM / 5464 * 100) / 100)
     font = ImageFont.truetype(str(args.font), font_size)
     text_size_space = font.getsize(' ')
     rectangle_y = img.height - space_bottom
@@ -156,13 +156,7 @@ def _generate_draw_data(img, exif_info):
 
     draw_data = {}
     for name, value in reversed(exif_info.items()):
-        if name == 'Exposure':
-            value = "%ss" % str(value)
-        elif name == 'Aperture':
-            value = 'f%s' % str(value)
-        else:
-            value = str(value)
-
+        value = str(value)
         name = "%s:" % str(name)
 
         text_size_description = font.getsize(name)
@@ -170,7 +164,7 @@ def _generate_draw_data(img, exif_info):
         rectangle_height = text_size_description[1] + box_padding_percent['top'] + box_padding_percent['bottom']
         rectangle_width = text_size_description[0] + text_size_value[0] + text_size_space[0] + box_padding_percent['left'] + box_padding_percent['right']
         rectangle_y = rectangle_y - rectangle_height
-        cursor['x'] = cursor['x'] - rectangle_height
+        cursor['y'] = cursor['y'] - rectangle_height
         rectangle_position = [
             cursor['x'],
             cursor['y'],
@@ -187,7 +181,7 @@ def _generate_draw_data(img, exif_info):
             "text_description": {
                 "width": text_size_description[0],
                 "height": text_size_description[1],
-                "position": (cursor['y'] + box_padding_percent['left'], cursor['y'] + box_padding_percent['top']),
+                "position": (cursor['x'] + box_padding_percent['left'], cursor['y'] + box_padding_percent['top']),
                 "text": str(name),
                 "font": font
             },
@@ -195,7 +189,7 @@ def _generate_draw_data(img, exif_info):
                 "width": text_size_value[0],
                 "height": text_size_value[1],
                 "position": (
-                    cursor['y'] + box_padding_percent['left'] + text_size_description[0] + text_size_space[0], cursor['y'] + box_padding_percent['top']),
+                    cursor['x'] + box_padding_percent['left'] + text_size_description[0] + text_size_space[0], cursor['y'] + box_padding_percent['top']),
                 "text": str(value),
                 "font": font
             }

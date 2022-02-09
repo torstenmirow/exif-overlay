@@ -70,6 +70,14 @@ def _process_exif_dict(exif_dict):
         exif_dict["FNumber"]["processed"] = \
             "f{}".format(exif_dict["FNumber"]["processed"])
 
+    if exif_dict.get("ApertureValue") is not None and exif_dict["ApertureValue"]["raw"] is not None:
+        exif_dict["ApertureValue"]["processed"] = \
+            _derationalize(exif_dict["ApertureValue"]["raw"])
+
+    if exif_dict.get("ApertureValue") is not None and exif_dict["ApertureValue"]["processed"] is not None:
+        exif_dict["ApertureValue"]["processed"] = \
+            "f{:2.1f}".format(exif_dict["ApertureValue"]["processed"])
+
     if exif_dict.get("MaxApertureValue") is not None and exif_dict["MaxApertureValue"]["raw"] is not None:
         exif_dict["MaxApertureValue"]["processed"] = \
             _derationalize(exif_dict["MaxApertureValue"]["raw"])
@@ -101,6 +109,10 @@ def _process_exif_dict(exif_dict):
     if exif_dict.get("ExposureTime") is not None and exif_dict["ExposureTime"]["processed"] is not None:
         exif_dict["ExposureTime"]["processed"] = \
             str(Fraction(exif_dict["ExposureTime"]["processed"]).limit_denominator(8000))
+
+    if exif_dict.get("ExposureTime") is not None and exif_dict["ExposureTime"]["processed"] is not None:
+        exif_dict["ExposureTime"]["processed"] = \
+            "{}s".format(exif_dict["ExposureTime"]["processed"])
 
     if exif_dict.get("ExposureBiasValue") is not None and exif_dict["ExposureBiasValue"]["raw"] is not None:
         exif_dict["ExposureBiasValue"]["processed"] = \
