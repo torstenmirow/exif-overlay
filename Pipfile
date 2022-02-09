@@ -9,6 +9,8 @@ colorama = "*"
 halo = "*"
 yaspin = "*"
 spinners = "*"
+mypy = "*"
+pylint = "*"
 
 [dev-packages]
 
