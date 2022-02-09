@@ -4,6 +4,11 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+termcolor = "*"
+colorama = "*"
+halo = "*"
+yaspin = "*"
+spinners = "*"
 
 [dev-packages]
 
