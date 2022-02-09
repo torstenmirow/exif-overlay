@@ -6,7 +6,7 @@ import time
 from concurrent import futures
 
 import argparse
-from PIL import Image, ImageFont, ImageDraw, ImageFilter, ImageColor
+from PIL import Image, ImageFont, ImageDraw, ImageFilter, ImageColor, ImageOps
 from halo import Halo
 
 from exif import generate_exif_dict
@@ -18,16 +18,19 @@ parser.add_argument('-f', dest='font', type=pathlib.Path, help='Path to OTF / TT
                     metavar='./fonts/SF-Pro-Display-Medium.otf')
 parser.add_argument('-t', dest='transparency', type=int, help='Background transparency 0-100', default="15", metavar='15')
 parser.add_argument('-c', dest='color', type=str, help='Text color in HEX', default="#ffffff", metavar='"#ffffff"')
-parser.add_argument('-b', dest='background', type=str, help='Box color in HEX', default="#000000", metavar='"#000000"')
+parser.add_argument('-g', dest='background', type=str, help='BackGround color in HEX', default="#000000", metavar='"#000000"')
 parser.add_argument('-p', dest='position', help='Position of exif infos', default="left", choices=['left', 'center', 'right'], metavar='left')
 parser.add_argument('-o', dest='output', type=pathlib.Path, help='Output folder', default=None, metavar='/Desktop/img')
+parser.add_argument('-s', dest='size', type=int, help='Fontsize, if used with -r size is calculated based on image height 5500px', default=125, metavar=125)
+parser.add_argument('-r', dest='relative_size', help='Fontsize relative to image?', default=False, action='store_true')
+parser.add_argument('-b', dest='border', type=float, help='Add border, size based on 1000px image', default=None, metavar='10')
 
 args = parser.parse_args()
 
 # Globals
-SPACE_FROM_BOTTOM = 60
-SPACE_FROM_LEFT = 80
-SPACE_BETWEEN_BOXES = 40
+SPACE_FROM_BOTTOM = 100
+SPACE_FROM_LEFT = 60
+SPACE_BETWEEN_BOXES = 30
 INCLUDED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'tif']
 POSITION = args.position
 if not args.output:
@@ -47,7 +50,8 @@ BOX_OPACITY = int(255 * (BOX_TRANSPARENCY / 100))
 BOX_RGBA = (BOX_COLOR + (BOX_OPACITY,))
 
 # Text
-FONT_SIZE = 2.3
+FONT_SIZE = int(args.size)
+# FONT_SIZE = 2.3
 TEXT_TRANSPARENCY = 100
 TEXT_COLOR = ImageColor.getrgb(args.color)
 
@@ -57,13 +61,20 @@ TEXT_RGBA = (TEXT_COLOR + (TEXT_OPACITY,))
 EXIF_TAGS_TO_PRINT = {
     "Model": "Model",
     "Lens": "LensModel",
-    "Aperture": "ApertureValue",
+    "Aperture": "FNumber",
     "FocalLength": "FocalLength",
     "Exposure": "ExposureTime",
     "ISO": "ISOSpeedRatings",
 }
 
 spinner = Halo(text='Loading..', spinner='bouncingBar', text_color='cyan')
+
+
+def _add_border(img):
+    if args.border is not None:
+        base = img.height if img.height > img.width else img.width
+        return ImageOps.expand(img, border=(round(base * (args.border / 1000))), fill='white')
+    return img
 
 
 # save image with high quality and same ICC Profile
@@ -76,6 +87,7 @@ def _save_image(img):
         spinner.fail('Output path "%s" does not exist!' % PATH)
 
     fullpath = os.path.join(PATH, filename)
+    img = _add_border(img)
 
     img.save(fullpath, quality=100, subsampling=0, format='JPEG', icc_profile=img.info.get('icc_profile', ''))
 
@@ -133,10 +145,22 @@ def draw_image(img, exif_info):
 
 
 def _generate_draw_data(img, exif_info):
-    font_size = round(img.height * FONT_SIZE / 100)
-    space_left = round(img.width * (SPACE_FROM_LEFT / 8192 * 100) / 100)
-    space_between = round(img.height * (SPACE_BETWEEN_BOXES / 5464 * 100) / 100)
-    space_bottom = round(img.height * (SPACE_FROM_BOTTOM / 5464 * 100) / 100)
+    if bool(args.relative_size) is True:
+        font_size_percentage = (FONT_SIZE / 5500 * 100)
+        font_size = round(img.height * font_size_percentage / 100)
+    else:
+        font_size = FONT_SIZE
+
+    if img.width > img.height:
+        space_from_left = SPACE_FROM_BOTTOM
+        space_from_bottom = SPACE_FROM_LEFT
+    else:
+        space_from_bottom = SPACE_FROM_BOTTOM
+        space_from_left = SPACE_FROM_LEFT
+
+    space_left = round(font_size * (space_from_left / 125 * 100) / 100)
+    space_between = round(font_size * (SPACE_BETWEEN_BOXES / 125 * 100) / 100)
+    space_bottom = round(font_size * (space_from_bottom / 125 * 100) / 100)
     font = ImageFont.truetype(str(args.font), font_size)
     text_size_space = font.getsize(' ')
     rectangle_y = img.height - space_bottom
@@ -226,6 +250,7 @@ def get_list_of_images(filepath):
 def parse_image(img_path):
     absolute_path = os.path.abspath(img_path)
     image = Image.open(absolute_path)
+
     exif_info = custom_exif(absolute_path)
     if exif_info is None:
         return 'Image %s contains no exif data' % os.path.basename(image.filename)
@@ -276,8 +301,9 @@ def read_image():
 
     elif os.path.isfile(filepath):
         spinner.start('Parsing 1 image')
-
         image = Image.open(filepath)
+        image = ImageOps.exif_transpose(image)
+
         exif_info = custom_exif(filepath)
         if exif_info is None:
             spinner.fail('%s contains no exif data' % image.filename)

@@ -72,7 +72,7 @@ def _process_exif_dict(exif_dict):
 
     if exif_dict.get("ApertureValue") is not None and exif_dict["ApertureValue"]["raw"] is not None:
         exif_dict["ApertureValue"]["processed"] = \
-            _derationalize(exif_dict["ApertureValue"]["raw"])
+            round(float(exif_dict["ApertureValue"]["raw"]), 2)
 
     if exif_dict.get("ApertureValue") is not None and exif_dict["ApertureValue"]["processed"] is not None:
         exif_dict["ApertureValue"]["processed"] = \
