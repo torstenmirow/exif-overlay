@@ -13,15 +13,16 @@ from exif import generate_exif_dict
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('image_paths', type=pathlib.Path, nargs='?', help='Path to image or folder')
-parser.add_argument('-f', dest='font', type=pathlib.Path, help='Path to OTF / TTF font', default="./fonts/SF-Pro-Display-Medium.otf",
-                    metavar='./fonts/SF-Pro-Display-Medium.otf')
+parser.add_argument('image_paths', type=pathlib.Path, nargs='?', help='Path to image or folder with multiple images')
+parser.add_argument('-f', dest='font', type=pathlib.Path, help='Path to OTF / TTF font file',
+                    # default="./fonts/SFProDisplayLight.otf",
+                    metavar='./fonts/SFProDisplayLight.otf')
 parser.add_argument('-t', dest='transparency', type=int, help='Background transparency 0-100', default="15", metavar='15')
 parser.add_argument('-c', dest='color', type=str, help='Text color in HEX', default="#ffffff", metavar='"#ffffff"')
 parser.add_argument('-g', dest='background', type=str, help='BackGround color in HEX', default="#000000", metavar='"#000000"')
 parser.add_argument('-p', dest='position', help='Position of exif infos', default="left", choices=['left', 'center', 'right'], metavar='left')
 parser.add_argument('-o', dest='output', type=pathlib.Path, help='Output folder', default=None, metavar='/Desktop/img')
-parser.add_argument('-s', dest='size', type=int, help='Fontsize, if used with -r size is calculated based on image height 5500px', default=125, metavar="125")
+parser.add_argument('-s', dest='size', type=int, help='Fontsize, if used with -r size is calculated based on image height 5500px', default=125, metavar='125')
 parser.add_argument('-r', dest='relative_size', help='Fontsize relative to image?', default=False, action='store_true')
 parser.add_argument('-b', dest='border', type=float, help='Add border, size based on 1000px image', default=None, metavar='10')
 
@@ -196,7 +197,6 @@ def _generate_draw_data(img, exif_info):
             }
         }
         cursor['y'] = cursor['y'] - space_between
-        print(draw_data[name]['text_description'], draw_data[name]['text_value'])
 
     return draw_data
 
