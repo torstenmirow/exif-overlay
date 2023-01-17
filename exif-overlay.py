@@ -21,7 +21,7 @@ parser.add_argument('-c', dest='color', type=str, help='Text color in HEX', defa
 parser.add_argument('-g', dest='background', type=str, help='BackGround color in HEX', default="#000000", metavar='"#000000"')
 parser.add_argument('-p', dest='position', help='Position of exif infos', default="left", choices=['left', 'center', 'right'], metavar='left')
 parser.add_argument('-o', dest='output', type=pathlib.Path, help='Output folder', default=None, metavar='/Desktop/img')
-parser.add_argument('-s', dest='size', type=int, help='Fontsize, if used with -r size is calculated based on image height 5500px', default=125, metavar=125)
+parser.add_argument('-s', dest='size', type=int, help='Fontsize, if used with -r size is calculated based on image height 5500px', default=125, metavar="125")
 parser.add_argument('-r', dest='relative_size', help='Fontsize relative to image?', default=False, action='store_true')
 parser.add_argument('-b', dest='border', type=float, help='Add border, size based on 1000px image', default=None, metavar='10')
 
@@ -78,8 +78,8 @@ def _add_border(img):
 
 
 # save image with high quality and same ICC Profile
-def _save_image(img):
-    basename = os.path.basename(img.filename)
+def _save_image(img, image_filename):
+    basename = image_filename
     filename_parts = os.path.splitext(basename)
     filename = filename_parts[0] + '.exif' + filename_parts[1]
     pathlib.Path(PATH).mkdir(parents=True, exist_ok=True)
@@ -118,11 +118,11 @@ def _draw_text(img, drawing_data):
         )
 
 
-def draw_image(img, exif_info):
+def draw_image(img, exif_info, image_filename):
     drawing_data = _generate_draw_data(img, exif_info)
     _draw_blurred_background(img, drawing_data)
     _draw_text(img, drawing_data)
-    _save_image(img)
+    _save_image(img, image_filename)
 
 
 def _generate_draw_data(img, exif_info):
@@ -143,7 +143,7 @@ def _generate_draw_data(img, exif_info):
     space_between = round(font_size * (SPACE_BETWEEN_BOXES / 125 * 100) / 100)
     space_bottom = round(font_size * (space_from_bottom / 125 * 100) / 100)
     font = ImageFont.truetype(str(args.font), font_size)
-    text_size_space = font.getsize(' ')
+    text_size_space = font.getbbox(' ')
     rectangle_y = img.height - space_bottom
     rectangle_x = 0 + space_left
 
@@ -160,10 +160,10 @@ def _generate_draw_data(img, exif_info):
         value = str(value)
         name = "%s:" % str(name)
 
-        text_size_description = font.getsize(name)
-        text_size_value = font.getsize(value)
-        rectangle_height = text_size_description[1] + box_padding_percent['top'] + box_padding_percent['bottom']
-        rectangle_width = text_size_description[0] + text_size_value[0] + text_size_space[0] + box_padding_percent['left'] + box_padding_percent['right']
+        text_size_description = font.getbbox(name)
+        text_size_value = font.getbbox(value)
+        rectangle_height = text_size_description[3] + box_padding_percent['top'] + box_padding_percent['bottom']
+        rectangle_width = text_size_description[2] + text_size_value[2] + text_size_space[0] + box_padding_percent['left'] + box_padding_percent['right']
         rectangle_y = rectangle_y - rectangle_height
         cursor['y'] = cursor['y'] - rectangle_height
         rectangle_position = [
@@ -180,8 +180,8 @@ def _generate_draw_data(img, exif_info):
                 "position": rectangle_position,
             },
             "text_description": {
-                "width": text_size_description[0],
-                "height": text_size_description[1],
+                "width": text_size_description[2],
+                "height": text_size_description[3],
                 "position": (cursor['x'] + box_padding_percent['left'], cursor['y'] + box_padding_percent['top']),
                 "text": str(name),
                 "font": font
@@ -190,13 +190,13 @@ def _generate_draw_data(img, exif_info):
                 "width": text_size_value[0],
                 "height": text_size_value[1],
                 "position": (
-                    cursor['x'] + box_padding_percent['left'] + text_size_description[0] + text_size_space[0], cursor['y'] + box_padding_percent['top']),
+                    cursor['x'] + box_padding_percent['left'] + text_size_description[2] + text_size_space[2], cursor['y'] + box_padding_percent['top']),
                 "text": str(value),
                 "font": font
             }
         }
-
         cursor['y'] = cursor['y'] - space_between
+        print(draw_data[name]['text_description'], draw_data[name]['text_value'])
 
     return draw_data
 
@@ -230,12 +230,13 @@ def get_list_of_images(filepath):
 
 def parse_image(img_path):
     absolute_path = os.path.abspath(img_path)
+    image_filename = os.path.basename(img_path)
     image = Image.open(absolute_path)
 
     exif_info = custom_exif(absolute_path)
     if exif_info is None:
-        return 'Image %s contains no exif data' % os.path.basename(image.filename)
-    draw_image(image, exif_info)
+        return 'Image %s contains no exif data' % os.path.basename(image_filename)
+    draw_image(image, exif_info, image_filename)
 
 
 def read_image():
@@ -283,14 +284,18 @@ def read_image():
     elif os.path.isfile(filepath):
         spinner.start('Parsing 1 image')
         image = Image.open(filepath)
+        image_filename = os.path.basename(filepath)
         image = ImageOps.exif_transpose(image)
 
         exif_info = custom_exif(filepath)
         if exif_info is None:
-            spinner.fail('%s contains no exif data' % image.filename)
+            spinner.fail('%s contains no exif data' % image_filename)
             return
-        draw_image(image, exif_info)
-        spinner.succeed("Saved 1 image to %s." % args.output)
+        draw_image(image, exif_info, image_filename)
+        if args.output:
+            spinner.succeed("Saved 1 image to %s." % args.output)
+        else:
+            spinner.succeed("Saved 1 image")
 
     else:
         spinner.warn("Unknown file.")
