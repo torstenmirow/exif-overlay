@@ -6,7 +6,7 @@ isort==5.11.4
 lazy-object-proxy==1.9.0
 log-symbols==0.0.14
 mccabe==0.7.0
-Pillow==9.4.0
+Pillow==10.0.1
 platformdirs==2.6.2
 pylint==2.15.10
 six==1.16.0
